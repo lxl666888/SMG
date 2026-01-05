@@ -41,8 +41,13 @@ const InterfaceFormModal: React.FC<InterfaceFormModalProps> = ({
   // IP Configuration States
   const [connectionType, setConnectionType] = useState('Static');
   const [ipValue, setIpValue] = useState('');
-  const [gatewayValue, setGatewayValue] = useState(''); // Changed to support variable logic
+  const [gatewayValue, setGatewayValue] = useState('');
   
+  // DHCP Configuration States
+  const [dhcpDefaultRoute, setDhcpDefaultRoute] = useState(false);
+  const [dhcpCommunicationMode, setDhcpCommunicationMode] = useState<'unicast' | 'broadcast'>('broadcast');
+  const [dhcpSystemDns, setDhcpSystemDns] = useState(true);
+
   // Initialize form if editing
   useEffect(() => {
       if (initialData) {
@@ -58,11 +63,15 @@ const InterfaceFormModal: React.FC<InterfaceFormModalProps> = ({
           setConnectionType(initialData.connectionType === 'DHCP' ? 'DHCP' : 'Static');
           
           const cleanIp = initialData.ip === '-' ? '' : initialData.ip;
-          setIpValue(cleanIp.startsWith('$') ? cleanIp.substring(1) : cleanIp);
+          setIpValue(cleanIp);
 
-          // Handle Gateway Variable
           const cleanGateway = initialData.gateway || '';
-          setGatewayValue(cleanGateway.startsWith('$') ? cleanGateway.substring(1) : cleanGateway);
+          setGatewayValue(cleanGateway);
+
+          // DHCP Specifics
+          setDhcpDefaultRoute(initialData.dhcpDefaultRoute || false);
+          setDhcpCommunicationMode(initialData.dhcpCommunicationMode || 'broadcast');
+          setDhcpSystemDns(initialData.dhcpSystemDns !== undefined ? initialData.dhcpSystemDns : true);
 
           // Sub/VLAN specifics
           setVlanId(initialData.vlanId || '');
@@ -88,6 +97,10 @@ const InterfaceFormModal: React.FC<InterfaceFormModalProps> = ({
           setAggrId('');
           setWorkMode('load-balance');
           setSelectedMembers(new Set());
+          
+          setDhcpDefaultRoute(false);
+          setDhcpCommunicationMode('broadcast');
+          setDhcpSystemDns(true);
       }
   }, [initialData]);
 
@@ -111,14 +124,12 @@ const InterfaceFormModal: React.FC<InterfaceFormModalProps> = ({
       if (category === 'sub' && !parentInterface) return alert('请选择主接口');
       if ((category === 'sub' || category === 'vlan') && !vlanId) return alert('请输入VLAN ID');
 
-      // Force variable format for Static IP
       const finalIp = connectionType === 'Static' && ipValue
-        ? (ipValue.startsWith('$') ? ipValue : `$${ipValue}`) 
+        ? ipValue
         : (connectionType === 'DHCP' ? 'DHCP' : '-');
 
-      // Force variable format for Gateway
       const finalGateway = connectionType === 'Static' && gatewayValue
-        ? (gatewayValue.startsWith('$') ? gatewayValue : `$${gatewayValue}`)
+        ? gatewayValue
         : '';
 
       const payload: Partial<NetworkInterface> = {
@@ -138,6 +149,10 @@ const InterfaceFormModal: React.FC<InterfaceFormModalProps> = ({
           vlanId: (category === 'sub' || category === 'vlan') ? vlanId : undefined,
           parentInterface: category === 'sub' ? parentInterface : undefined,
           sourceInOut,
+          // DHCP fields
+          dhcpDefaultRoute: connectionType === 'DHCP' ? dhcpDefaultRoute : undefined,
+          dhcpCommunicationMode: connectionType === 'DHCP' ? dhcpCommunicationMode : undefined,
+          dhcpSystemDns: connectionType === 'DHCP' ? dhcpSystemDns : undefined,
           // Aggregate fields
           workMode: category === 'aggregate' ? workMode : undefined,
           memberInterfaces: category === 'aggregate' ? Array.from(selectedMembers) : undefined
@@ -159,6 +174,78 @@ const InterfaceFormModal: React.FC<InterfaceFormModalProps> = ({
       i.name.toLowerCase().includes(memberSearch.toLowerCase())
   );
 
+  // Hybrid Variable Input Component
+  const HybridInput = ({ 
+      value, 
+      onChange, 
+      placeholder 
+  }: { 
+      value: string, 
+      onChange: (val: string) => void, 
+      placeholder?: string
+  }) => {
+      const isVariable = value.startsWith('$');
+      const displayValue = isVariable ? value.substring(1) : value;
+
+      const handleInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+          const newValue = e.target.value;
+          if (isVariable) {
+              onChange(`$${newValue}`);
+          } else {
+              // Auto-detect variable start
+              if (newValue.startsWith('$')) {
+                  onChange(newValue);
+              } else {
+                  onChange(newValue);
+              }
+          }
+      };
+
+      const toggleVariableMode = () => {
+          if (isVariable) {
+              onChange(value.substring(1)); // Remove $
+          } else {
+              onChange(`$${value}`); // Add $
+          }
+      };
+
+      return (
+          <div className="relative group w-full">
+              {/* Prefix Icon */}
+              <div className={`absolute left-3 top-1/2 -translate-y-1/2 z-10 flex items-center pointer-events-none transition-opacity duration-200 ${isVariable ? 'opacity-100' : 'opacity-0'}`}>
+                    <span className="text-purple-600 font-bold text-lg">$</span>
+              </div>
+              
+              {/* Actual Input */}
+              <input 
+                type="text" 
+                value={displayValue}
+                onChange={handleInputChange}
+                className={`
+                    w-full py-2 border rounded text-sm focus:outline-none focus:ring-2 transition-all font-mono
+                    ${isVariable 
+                        ? 'pl-7 pr-10 text-purple-700 bg-purple-50/10 border-purple-300 focus:ring-purple-200' 
+                        : 'pl-3 pr-10 border-gray-300 focus:ring-blue-500/20 focus:border-blue-500 text-gray-800'
+                    }
+                `}
+                placeholder={placeholder}
+              />
+              
+              {/* Right Action Button */}
+              <div className="absolute right-2 top-1/2 -translate-y-1/2 flex items-center">
+                  <button 
+                    type="button"
+                    onClick={toggleVariableMode}
+                    className={`p-1.5 rounded transition-colors ${isVariable ? 'text-purple-600 hover:bg-purple-100' : 'text-gray-400 hover:text-blue-600 hover:bg-gray-100'}`}
+                    title={isVariable ? "切换为固定值" : "设为模版变量"}
+                  >
+                      <Variable className="w-4 h-4" />
+                  </button>
+              </div>
+          </div>
+      );
+  };
+
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm animate-in fade-in duration-200">
       <div className="bg-white rounded-lg shadow-xl w-[700px] max-h-[90vh] flex flex-col overflow-hidden animate-in zoom-in-95 duration-200">
@@ -179,7 +266,6 @@ const InterfaceFormModal: React.FC<InterfaceFormModalProps> = ({
                 <h4 className="text-base font-bold text-gray-800 mb-4 border-l-4 border-blue-500 pl-3">基础信息</h4>
                 
                 <div className="space-y-5">
-                    
                     {/* Name Logic */}
                     <div className="flex items-center">
                         <label className="w-24 text-sm font-medium text-gray-700">接口名称：</label>
@@ -294,22 +380,6 @@ const InterfaceFormModal: React.FC<InterfaceFormModalProps> = ({
                         </select>
                     </div>
 
-                    {category === 'aggregate' && (
-                        <div className="flex items-center">
-                            <label className="w-24 text-sm font-medium text-gray-700">工作模式：</label>
-                            <select 
-                                value={workMode}
-                                onChange={e => setWorkMode(e.target.value)}
-                                className="flex-1 border border-gray-300 rounded px-3 py-2 text-sm focus:outline-none focus:ring-1 focus:ring-blue-500 bg-white"
-                            >
-                                <option value="load-balance">负载均衡-hash</option>
-                                <option value="lacp">LACP (802.3ad)</option>
-                                <option value="round-robin">轮询</option>
-                                <option value="active-backup">主备</option>
-                            </select>
-                        </div>
-                    )}
-
                     <div className="flex items-center">
                         <label className="w-24 text-sm font-medium text-gray-700">基本属性：</label>
                         <label className="flex items-center cursor-pointer">
@@ -322,105 +392,8 @@ const InterfaceFormModal: React.FC<InterfaceFormModalProps> = ({
                             <span className="ml-2 text-sm text-gray-700">WAN口</span>
                         </label>
                     </div>
-
-                    <div className="flex items-center">
-                        <label className="w-24 text-sm font-medium text-gray-700 flex items-center">
-                            源进源出
-                            <Info className="w-3.5 h-3.5 ml-1 text-blue-500 cursor-pointer" />
-                            ：
-                        </label>
-                        <label className="flex items-center cursor-pointer">
-                            <input 
-                                type="checkbox" 
-                                checked={sourceInOut}
-                                onChange={e => setSourceInOut(e.target.checked)}
-                                className="w-4 h-4 rounded border-gray-300 text-blue-600 focus:ring-blue-500" 
-                            />
-                            <span className="ml-2 text-sm text-gray-700">启用</span>
-                        </label>
-                    </div>
                 </div>
             </div>
-
-            {/* Aggregate Member Selection */}
-            {category === 'aggregate' && (
-                <div className="mb-6">
-                    <h4 className="text-base font-bold text-gray-800 mb-2">选择聚合接口</h4>
-                    <div className="bg-orange-50 border border-orange-100 rounded p-2 mb-4 flex items-start text-xs text-orange-700">
-                        <AlertCircle className="w-4 h-4 mr-2 shrink-0 mt-0.5" />
-                        选择的接口巨帧开启禁用状态不一致时可能导致丢包，请检查成员口配置。
-                    </div>
-
-                    <div className="flex border border-gray-300 rounded-lg h-[250px]">
-                        {/* Left: Available */}
-                        <div className="flex-1 flex flex-col border-r border-gray-200">
-                            <div className="px-3 py-2 border-b border-gray-200 bg-gray-50 flex justify-between items-center">
-                                <span className="text-xs font-bold text-gray-600">待选 ({filteredMembers.filter(i => !selectedMembers.has(i.name)).length})</span>
-                            </div>
-                            <div className="p-2 border-b border-gray-200">
-                                <div className="relative">
-                                    <Search className="absolute left-2 top-2 w-3.5 h-3.5 text-gray-400" />
-                                    <input 
-                                        type="text" 
-                                        value={memberSearch}
-                                        onChange={e => setMemberSearch(e.target.value)}
-                                        placeholder="搜索关键字"
-                                        className="w-full pl-7 pr-2 py-1 text-xs border border-gray-200 rounded focus:outline-none focus:border-blue-500"
-                                    />
-                                </div>
-                            </div>
-                            <div className="flex-1 overflow-y-auto p-2 space-y-1">
-                                {filteredMembers.map(iface => {
-                                    if (selectedMembers.has(iface.name)) return null;
-                                    return (
-                                        <div 
-                                            key={iface.id}
-                                            onClick={() => {
-                                                const newSet = new Set(selectedMembers);
-                                                newSet.add(iface.name);
-                                                setSelectedMembers(newSet);
-                                            }}
-                                            className="flex items-center px-2 py-1.5 hover:bg-gray-100 rounded cursor-pointer group"
-                                        >
-                                            <div className="w-4 h-4 border border-gray-300 rounded mr-2 bg-white group-hover:border-blue-400"></div>
-                                            <Monitor className="w-3.5 h-3.5 mr-2 text-gray-400" />
-                                            <span className="text-sm text-gray-700">{iface.name}</span>
-                                        </div>
-                                    );
-                                })}
-                            </div>
-                        </div>
-
-                        {/* Right: Selected */}
-                        <div className="flex-1 flex flex-col bg-blue-50/20">
-                            <div className="px-3 py-2 border-b border-gray-200 bg-gray-50 flex justify-between items-center">
-                                <span className="text-xs font-bold text-gray-600">已选 ({selectedMembers.size})</span>
-                                <button className="text-xs text-blue-600 hover:underline" onClick={() => setSelectedMembers(new Set())}>清空</button>
-                            </div>
-                            <div className="flex-1 overflow-y-auto p-2 space-y-1">
-                                {Array.from(selectedMembers).map(name => (
-                                    <div 
-                                        key={name}
-                                        onClick={() => {
-                                            const newSet = new Set(selectedMembers);
-                                            newSet.delete(name);
-                                            setSelectedMembers(newSet);
-                                        }}
-                                        className="flex items-center px-2 py-1.5 hover:bg-red-50 rounded cursor-pointer group border border-transparent hover:border-red-100"
-                                    >
-                                        <div className="w-4 h-4 bg-blue-600 border border-blue-600 rounded mr-2 flex items-center justify-center group-hover:bg-red-500 group-hover:border-red-500 transition-colors">
-                                            <Check className="w-3 h-3 text-white group-hover:hidden" />
-                                            <X className="w-3 h-3 text-white hidden group-hover:block" />
-                                        </div>
-                                        <Monitor className="w-3.5 h-3.5 mr-2 text-blue-600 group-hover:text-red-500" />
-                                        <span className="text-sm text-gray-800 group-hover:text-red-700">{name}</span>
-                                    </div>
-                                ))}
-                            </div>
-                        </div>
-                    </div>
-                </div>
-            )}
 
             <div className="border-t border-gray-200 my-6"></div>
 
@@ -444,7 +417,7 @@ const InterfaceFormModal: React.FC<InterfaceFormModalProps> = ({
                                     onChange={() => setConnectionType('Static')}
                                     className="text-blue-600 focus:ring-blue-500 w-4 h-4" 
                                 />
-                                <span className="ml-2 text-sm text-gray-700 font-bold">静态IP</span>
+                                <span className={`ml-2 text-sm ${connectionType === 'Static' ? 'text-gray-800 font-bold' : 'text-gray-600'}`}>静态IP</span>
                             </label>
                             <label className="flex items-center cursor-pointer">
                                 <input 
@@ -454,41 +427,38 @@ const InterfaceFormModal: React.FC<InterfaceFormModalProps> = ({
                                     onChange={() => setConnectionType('DHCP')}
                                     className="text-blue-600 focus:ring-blue-500 w-4 h-4" 
                                 />
-                                <span className="ml-2 text-sm text-gray-700">DHCP</span>
-                            </label>
-                            <label className="flex items-center cursor-pointer">
-                                <input type="radio" name="connType" disabled className="text-gray-300 w-4 h-4" />
-                                <span className="ml-2 text-sm text-gray-400">PPPoE</span>
+                                <span className={`ml-2 text-sm ${connectionType === 'DHCP' ? 'text-gray-800 font-bold' : 'text-gray-600'}`}>DHCP</span>
                             </label>
                         </div>
                     </div>
                     
+                    {connectionType === 'DHCP' && (
+                        <div className="bg-gray-50 rounded-lg p-6 border border-gray-200 ml-10 relative mt-2">
+                            <div className="absolute -top-1.5 left-10 w-3 h-3 bg-gray-50 border-t border-l border-gray-200 transform rotate-45"></div>
+                            <div className="space-y-5">
+                                <div className="flex items-center">
+                                    <label className="w-28 text-sm font-medium text-gray-600 text-right mr-3">默认路由：</label>
+                                    <label className="flex items-center cursor-pointer">
+                                        <input type="checkbox" checked={dhcpDefaultRoute} onChange={e => setDhcpDefaultRoute(e.target.checked)} className="w-4 h-4 rounded border-gray-300 text-blue-600 focus:ring-blue-500" />
+                                        <span className="ml-2 text-sm text-gray-700">获取</span>
+                                    </label>
+                                </div>
+                            </div>
+                        </div>
+                    )}
+
                     {connectionType === 'Static' && (
                         <div className="bg-gray-50 rounded-lg p-6 border border-gray-200 ml-10 relative animate-in fade-in slide-in-from-top-2 duration-200">
-                             
                              <div className="flex items-start mb-6">
                                  <label className="w-20 text-sm font-bold text-gray-700 mt-2">IP地址：</label>
                                  <div className="flex-1">
-                                     <div className="relative">
-                                         <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
-                                             <span className="text-purple-500 font-bold text-lg">$</span>
-                                         </div>
-                                         <input 
-                                            type="text" 
-                                            value={ipValue} 
-                                            onChange={e => setIpValue(e.target.value)}
-                                            className="w-full pl-7 pr-28 py-2 border border-gray-300 rounded focus:ring-2 focus:ring-purple-500/20 focus:border-purple-500 font-mono text-sm shadow-sm"
-                                            placeholder="例如: interface_ip"
-                                         />
-                                         <div className="absolute inset-y-0 right-0 pr-1 flex items-center pointer-events-none">
-                                             <div className="flex items-center bg-gray-100 px-2 py-1 rounded text-xs text-gray-500 border border-gray-200 mr-1">
-                                                 <Variable className="w-3 h-3 mr-1 text-purple-500" />
-                                                 模版变量
-                                             </div>
-                                         </div>
-                                     </div>
+                                     <HybridInput 
+                                        value={ipValue}
+                                        onChange={setIpValue}
+                                        placeholder="例如: 192.168.1.1/24"
+                                     />
                                      <p className="mt-2 text-xs text-gray-500">
-                                         请输入模版变量名（如 interface_ip），下发时将替换为设备实际IP。
+                                         既支持输入固定IP（如 192.168.1.1/24），也支持变量下发（如 $interface_ip）
                                      </p>
                                  </div>
                              </div>
@@ -496,24 +466,11 @@ const InterfaceFormModal: React.FC<InterfaceFormModalProps> = ({
                              <div className="flex items-center">
                                  <label className="w-20 text-sm font-bold text-gray-700 mt-2">网关：</label>
                                  <div className="flex-1">
-                                     <div className="relative">
-                                         <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
-                                             <span className="text-purple-500 font-bold text-lg">$</span>
-                                         </div>
-                                         <input 
-                                            type="text" 
-                                            value={gatewayValue} 
-                                            onChange={e => setGatewayValue(e.target.value)}
-                                            className="w-full pl-7 pr-28 py-2 border border-gray-300 rounded focus:ring-2 focus:ring-purple-500/20 focus:border-purple-500 font-mono text-sm shadow-sm"
-                                            placeholder="选填"
-                                         />
-                                         <div className="absolute inset-y-0 right-0 pr-1 flex items-center pointer-events-none">
-                                             <div className="flex items-center bg-gray-100 px-2 py-1 rounded text-xs text-gray-500 border border-gray-200 mr-1">
-                                                 <Variable className="w-3 h-3 mr-1 text-purple-500" />
-                                                 模版变量
-                                             </div>
-                                         </div>
-                                     </div>
+                                     <HybridInput 
+                                        value={gatewayValue}
+                                        onChange={setGatewayValue}
+                                        placeholder="选填"
+                                     />
                                  </div>
                              </div>
                         </div>
@@ -528,53 +485,16 @@ const InterfaceFormModal: React.FC<InterfaceFormModalProps> = ({
                 <label className="w-24 text-sm font-medium text-gray-700">线路带宽：</label>
                 <div className="flex items-center space-x-4 flex-1">
                     <div className="flex items-center">
-                        <span className="text-sm text-gray-600 mr-2">上行</span>
+                        <span className="text-sm text-gray-600 mr-2">上下行</span>
                         <div className="flex border border-gray-300 rounded overflow-hidden shadow-sm">
                             <input type="text" defaultValue="0" className="w-20 px-2 py-1.5 text-sm focus:outline-none text-right" />
                             <div className="border-l border-gray-300 bg-gray-50 px-2 py-1.5 flex items-center justify-center min-w-[70px]">
                                 <span className="text-xs text-gray-600">Kbps</span>
-                                <svg className="w-3 h-3 ml-1 text-gray-400" fill="currentColor" viewBox="0 0 20 20"><path fillRule="evenodd" d="M5.293 7.293a1 1 0 011.414 0L10 10.586l3.293-3.293a1 1 0 111.414 1.414l-4 4a1 1 0 01-1.414 0l-4-4a1 1 0 010-1.414z" clipRule="evenodd" /></svg>
-                            </div>
-                        </div>
-                    </div>
-                    <div className="flex items-center">
-                        <span className="text-sm text-gray-600 mr-2">下行</span>
-                        <div className="flex border border-gray-300 rounded overflow-hidden shadow-sm">
-                            <input type="text" defaultValue="0" className="w-20 px-2 py-1.5 text-sm focus:outline-none text-right" />
-                            <div className="border-l border-gray-300 bg-gray-50 px-2 py-1.5 flex items-center justify-center min-w-[70px]">
-                                <span className="text-xs text-gray-600">Kbps</span>
-                                <svg className="w-3 h-3 ml-1 text-gray-400" fill="currentColor" viewBox="0 0 20 20"><path fillRule="evenodd" d="M5.293 7.293a1 1 0 011.414 0L10 10.586l3.293-3.293a1 1 0 111.414 1.414l-4 4a1 1 0 01-1.414 0l-4-4a1 1 0 010-1.414z" clipRule="evenodd" /></svg>
                             </div>
                         </div>
                     </div>
                     <Info className="w-4 h-4 text-blue-500 cursor-pointer" />
                 </div>
-            </div>
-
-            {/* Section 4: Management (Shared) */}
-            <div>
-                 <h4 className="text-base font-bold text-gray-800 mb-4 border-l-4 border-blue-500 pl-3">管理设备方式</h4>
-                 <div className="flex items-center">
-                     <label className="w-24 text-sm font-medium text-gray-700">允许：</label>
-                     <div className="flex space-x-6">
-                        <label className="flex items-center cursor-pointer">
-                            <input type="checkbox" defaultChecked className="w-4 h-4 rounded border-gray-300 text-blue-600 focus:ring-blue-500" />
-                            <span className="ml-2 text-sm text-gray-700">WEBUI</span>
-                        </label>
-                        <label className="flex items-center cursor-pointer">
-                            <input type="checkbox" defaultChecked className="w-4 h-4 rounded border-gray-300 text-blue-600 focus:ring-blue-500" />
-                            <span className="ml-2 text-sm text-gray-700">PING</span>
-                        </label>
-                        <label className="flex items-center cursor-pointer">
-                            <input type="checkbox" className="w-4 h-4 rounded border-gray-300 text-blue-600 focus:ring-blue-500" />
-                            <span className="ml-2 text-sm text-gray-700">SNMP</span>
-                        </label>
-                        <label className="flex items-center cursor-pointer">
-                            <input type="checkbox" className="w-4 h-4 rounded border-gray-300 text-blue-600 focus:ring-blue-500" />
-                            <span className="ml-2 text-sm text-gray-700">SSH</span>
-                        </label>
-                     </div>
-                 </div>
             </div>
         </div>
 

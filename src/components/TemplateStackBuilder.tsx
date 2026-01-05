@@ -1,7 +1,7 @@
 
 import React, { useState, useEffect, useRef } from 'react';
 import { Template, TemplateStack, VariableMapping } from '../types';
-import { FileText, Plus, CheckCircle2, Monitor, Settings, Edit2, X, ArrowLeft, ArrowRight, ArrowLeft as ArrowLeftIcon, GripHorizontal, Lock, AlertCircle, Sliders } from 'lucide-react';
+import { FileText, Plus, CheckCircle2, Monitor, Settings, Edit2, X, ArrowLeft, ArrowRight, ArrowLeft as ArrowLeftIcon, GripHorizontal, Lock, AlertCircle, Sliders, Settings2 } from 'lucide-react';
 
 interface TemplateStackBuilderProps {
   stack: TemplateStack;
@@ -114,7 +114,7 @@ const TemplateStackBuilder: React.FC<TemplateStackBuilderProps> = ({
   onBack,
   onOpenScopeSelector,
   onReorderTemplates,
-  readOnly = false
+  readOnly = false,
 }) => {
   const [isEditingName, setIsEditingName] = useState(false);
   const [tempName, setTempName] = useState(stack.name);
@@ -209,7 +209,7 @@ const TemplateStackBuilder: React.FC<TemplateStackBuilderProps> = ({
             </div>
         </div>
 
-        {/* Scope Management */}
+        {/* Right Actions: Scope */}
         <div className="flex items-center bg-white rounded-md border border-gray-200 px-1 py-1 shadow-sm">
             <div className="flex items-center px-3 py-1.5 border-r border-gray-200 text-sm text-gray-600">
                 <Monitor className="w-4 h-4 mr-2 text-gray-500" />
@@ -228,8 +228,8 @@ const TemplateStackBuilder: React.FC<TemplateStackBuilderProps> = ({
                 </button>
             ) : (
                 <div className="px-3 py-1.5 text-gray-400 text-sm font-medium flex items-center cursor-not-allowed">
-                     <Settings className="w-3.5 h-3.5 mr-1.5" />
-                     管理关联
+                    <Settings className="w-3.5 h-3.5 mr-1.5" />
+                    管理关联
                 </div>
             )}
         </div>

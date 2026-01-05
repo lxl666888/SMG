@@ -169,4 +169,30 @@ export interface NetworkObject {
   content: string;
 }
 
+export interface StaticRoute {
+  id: string;
+  ipVersion: 'IPv4' | 'IPv6';
+  destination: string; // Supports variable
+  interface: string;
+  nextHop?: string; // Supports variable
+  distance: number;
+  metric: number;
+  status: 'enabled' | 'disabled';
+  description?: string;
+  reliabilityDetection?: boolean;
+  sourceTemplateId: string;
+}
+
+export interface BgpGlobalConfig {
+  enabled: boolean;
+  asNumber?: string;
+  routerId?: string;
+}
+
+export interface BgpNetwork {
+  id: string;
+  network: string; // Supports variable
+  sourceTemplateId: string;
+}
+
 export type ViewMode = 'list' | 'stack_edit';

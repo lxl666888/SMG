@@ -19,6 +19,7 @@ import CreateStackModal from './components/CreateStackModal'; // Import Create S
 import ZoneTable from './components/ZoneTable'; // Import Zone Table
 import VariableManager from './components/VariableManager'; // Import Variable Manager
 import TemplateVariableModal from './components/TemplateVariableModal'; // Import Template Variable Modal
+import VariableMappingModal from './components/VariableMappingModal'; // Import Variable Mapping Modal
 import VirtualWireModal from './components/VirtualWireModal'; // Import VWire Modal
 import VirtualLineModal from './components/VirtualLineModal'; // Import VLine Modal
 import DdnsModal from './components/DdnsModal'; // Import DDNS Modal
@@ -45,7 +46,7 @@ import {
   MOCK_BGP_NETWORKS
 } from './constants';
 import { TemplateStack, Template, DeviceGroup, NetworkInterface, NetworkZone, VariableMapping, TemplateVariable, VirtualWire, VirtualLine, DnsConfig, DdnsPolicy, DhcpConfig, StaticRoute, BgpGlobalConfig, BgpNetwork } from './types';
-import { Layers, FileCode, ArrowLeft, Server, Share2, Monitor, Edit3, Settings, LayoutGrid, Settings2 } from 'lucide-react';
+import { Layers, FileCode, ArrowLeft, Server, Share2, Monitor, Edit3, Settings, LayoutGrid, Settings2, Sliders } from 'lucide-react';
 
 interface TabItem {
   key: string;
@@ -92,9 +93,6 @@ const App: React.FC = () => {
   // Shared Active Module State (e.g. Sidebar selection in Network/System/Editors)
   const [activeModule, setActiveModule] = useState<string>('network_interfaces');
   
-  // Stack Editor View State
-  const [stackEditorView, setStackEditorView] = useState<'composition' | 'variables'>('composition');
-
   // -- State for Modals --
   const [isScopeSelectorOpen, setIsScopeSelectorOpen] = useState(false);
   const [isAddTemplateModalOpen, setIsAddTemplateModalOpen] = useState(false);
@@ -103,6 +101,7 @@ const App: React.FC = () => {
   const [isZoneModalOpen, setIsZoneModalOpen] = useState(false);
   const [isCreateStackModalOpen, setIsCreateStackModalOpen] = useState(false);
   const [isTemplateVariableModalOpen, setIsTemplateVariableModalOpen] = useState(false);
+  const [isVariableMappingModalOpen, setIsVariableMappingModalOpen] = useState(false);
   const [isVWireModalOpen, setIsVWireModalOpen] = useState(false);
   const [isVLineModalOpen, setIsVLineModalOpen] = useState(false);
   const [isDdnsModalOpen, setIsDdnsModalOpen] = useState(false);
@@ -113,6 +112,7 @@ const App: React.FC = () => {
   const [editingStackId, setEditingStackId] = useState<string | null>(null);
   const [previewTemplateId, setPreviewTemplateId] = useState<string | null>(null);
   const [editingTemplateId, setEditingTemplateId] = useState<string | null>(null); 
+  const [editingStackForMapping, setEditingStackForMapping] = useState<string | null>(null);
   
   // New: Interface Editing State
   const [editingInterface, setEditingInterface] = useState<NetworkInterface | null>(null);
@@ -155,7 +155,6 @@ const App: React.FC = () => {
   useEffect(() => {
       if (sidebarSelection.type === 'stack') {
           setPreviewTemplateId(null);
-          setStackEditorView('composition'); // Reset view mode
       }
   }, [sidebarSelection.id, sidebarSelection.type]);
 
@@ -640,6 +639,11 @@ const App: React.FC = () => {
       setIsTemplateVariableModalOpen(true);
   };
 
+  const handleManageVariableMappings = (stackId: string) => {
+      setEditingStackForMapping(stackId);
+      setIsVariableMappingModalOpen(true);
+  };
+
   const handleSaveTemplateVariables = (variables: TemplateVariable[]) => {
       if (editingTemplateId) {
           setAllTemplates(prev => prev.map(t => 
@@ -900,8 +904,6 @@ const App: React.FC = () => {
                   <TemplateStackBuilder 
                       stack={stack}
                       selectedTemplateId={previewTemplateId} 
-                      activeView={stackEditorView}
-                      onViewChange={setStackEditorView}
                       onSelectTemplate={(id) => setPreviewTemplateId(id)} 
                       onAddTemplate={() => {
                           setEditingStackId(stack.id);
@@ -933,74 +935,81 @@ const App: React.FC = () => {
               </div>
               
               <div className="flex-1 flex min-h-0 bg-white">
-                   {stackEditorView === 'variables' ? (
-                       <div className="w-full h-full">
-                           <VariableManager 
-                                stack={stack}
-                                allTemplates={allTemplates}
-                                onSave={(newMappings) => handleSaveVariableMappings(stack.id, newMappings)}
-                           />
-                       </div>
-                   ) : (
-                       <>
-                           <TemplateSidebar activeModule={activeModule} onSelectModule={setActiveModule} />
-                           <div className="flex-1 flex flex-col overflow-hidden">
-                               <div className="px-6 py-2 border-b border-gray-100 bg-gray-50 flex items-center justify-between text-xs text-gray-500">
-                                   <span>预览模式 (实时预览生效结果)</span>
-                               </div>
-                               {activeModule === 'network_interfaces' ? (
-                                   <NetworkTable 
-                                        data={allInterfaces} 
-                                        activeTemplateId={previewTemplateId} 
-                                        showAssociatedDevices={false} 
-                                        stacks={[stack]}
-                                        stackTemplates={stack.templates}
-                                   />
-                               ) : activeModule === 'system_general' ? (
-                                   <SystemConfigForm isPreview={true} />
-                               ) : activeModule === 'network_dns' ? (
-                                   <div className="h-full w-full">
-                                       <NetworkDns 
-                                            dnsConfig={dnsConfig}
-                                            ddnsPolicies={ddnsPolicies}
-                                            isEditable={false} // Stack view is preview only
-                                            onSaveDns={() => {}}
-                                            onAddDdns={() => {}}
-                                            onEditDdns={() => {}}
-                                            onDeleteDdns={() => {}}
-                                       />
-                                   </div>
-                               ) : activeModule === 'network_dhcp' ? (
-                                   <div className="h-full w-full">
-                                       <DhcpTable 
-                                            data={dhcpConfigs}
-                                            onAdd={() => {}}
-                                            onEdit={() => {}}
-                                            onDelete={() => {}}
-                                       />
-                                   </div>
-                               ) : activeModule === 'network_routes' ? (
-                                   <div className="h-full w-full">
-                                       <NetworkRoutes 
-                                            staticRoutes={staticRoutes}
-                                            bgpGlobal={bgpGlobal}
-                                            bgpNetworks={bgpNetworks}
-                                            interfaces={allInterfaces}
-                                            isEditable={false}
-                                            onAddStaticRoute={() => {}}
-                                            onEditStaticRoute={() => {}}
-                                            onDeleteStaticRoute={() => {}}
-                                            onSaveBgpGlobal={() => {}}
-                                            onAddBgpNetwork={() => {}}
-                                            onDeleteBgpNetwork={() => {}}
-                                       />
-                                   </div>
-                               ) : (
-                                   <div className="flex items-center justify-center h-full text-gray-400">Module: {activeModule}</div>
-                               )}
+                   <TemplateSidebar activeModule={activeModule} onSelectModule={setActiveModule} />
+                   <div className="flex-1 flex flex-col overflow-hidden relative">
+                       <div className="px-6 py-2 border-b border-gray-100 bg-blue-50/20 flex items-center justify-between text-xs text-blue-800">
+                           <span className="flex items-center font-medium">
+                               <Monitor className="w-3.5 h-3.5 mr-2" />
+                               预览模式 (实时预览生效结果)
+                           </span>                      
+                           <div className="flex items-center space-x-3">
+                               <button 
+                                    onClick={() => handleManageVariableMappings(stack.id)}
+                                    className="flex items-center text-[10px] text-indigo-600 bg-white border border-indigo-200 hover:bg-indigo-50 px-3 py-1 rounded transition-colors shadow-sm"
+                               >
+                                    <Settings2 className="w-3 h-3 mr-1.5" />
+                                    管理变量定义
+                               </button>
+                               <button 
+                                    onClick={() => handleManageVariableMappings(stack.id)}
+                                    className="flex items-center text-[10px] text-blue-600 bg-white border border-blue-200 hover:bg-blue-50 px-3 py-1 rounded transition-colors shadow-sm"
+                               >
+                                    <Sliders className="w-3 h-3 mr-1.5" />
+                                    变量映射
+                               </button>
                            </div>
-                       </>
-                   )}
+                       </div>
+                       {activeModule === 'network_interfaces' ? (
+                           <NetworkTable 
+                                data={allInterfaces} 
+                                activeTemplateId={previewTemplateId} 
+                                showAssociatedDevices={false} 
+                                stacks={[stack]}
+                                stackTemplates={stack.templates}
+                           />
+                       ) : activeModule === 'system_general' ? (
+                           <SystemConfigForm isPreview={true} />
+                       ) : activeModule === 'network_dns' ? (
+                           <div className="h-full w-full">
+                               <NetworkDns 
+                                    dnsConfig={dnsConfig}
+                                    ddnsPolicies={ddnsPolicies}
+                                    isEditable={false} // Stack view is preview only
+                                    onSaveDns={() => {}}
+                                    onAddDdns={() => {}}
+                                    onEditDdns={() => {}}
+                                    onDeleteDdns={() => {}}
+                               />
+                           </div>
+                       ) : activeModule === 'network_dhcp' ? (
+                           <div className="h-full w-full">
+                               <DhcpTable 
+                                    data={dhcpConfigs}
+                                    onAdd={() => {}}
+                                    onEdit={() => {}}
+                                    onDelete={() => {}}
+                               />
+                           </div>
+                       ) : activeModule === 'network_routes' ? (
+                           <div className="h-full w-full">
+                               <NetworkRoutes 
+                                    staticRoutes={staticRoutes}
+                                    bgpGlobal={bgpGlobal}
+                                    bgpNetworks={bgpNetworks}
+                                    interfaces={allInterfaces}
+                                    isEditable={false}
+                                    onAddStaticRoute={() => {}}
+                                    onEditStaticRoute={() => {}}
+                                    onDeleteStaticRoute={() => {}}
+                                    onSaveBgpGlobal={() => {}}
+                                    onAddBgpNetwork={() => {}}
+                                    onDeleteBgpNetwork={() => {}}
+                               />
+                           </div>
+                       ) : (
+                           <div className="flex items-center justify-center h-full text-gray-400">Module: {activeModule}</div>
+                       )}
+                   </div>
               </div>
           </div>
       );
@@ -1382,6 +1391,20 @@ const App: React.FC = () => {
                   setEditingTemplateId(null);
               }}
               onSave={handleSaveTemplateVariables}
+          />
+      )}
+
+      {/* Variable Mapping Modal (Stack Level) */}
+      {isVariableMappingModalOpen && editingStackForMapping && (
+          <VariableMappingModal
+              stack={allStacks.find(s => s.id === editingStackForMapping)!}
+              allTemplates={allTemplates}
+              groups={MOCK_DEVICE_GROUPS}
+              onClose={() => {
+                  setIsVariableMappingModalOpen(false);
+                  setEditingStackForMapping(null);
+              }}
+              onSave={(mappings) => handleSaveVariableMappings(editingStackForMapping, mappings)}
           />
       )}
 

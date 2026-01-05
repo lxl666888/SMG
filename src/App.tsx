@@ -1,7 +1,8 @@
+
 import React, { useState, useMemo, useEffect } from 'react';
-import TopNav from './components/TopNav'; // Now acts as Header
+import TopNav from './components/TopNav'; 
 import Sidebar from './components/Sidebar';
-import MainSidebar from './components/MainSidebar'; // New Vertical Sidebar
+import MainSidebar from './components/MainSidebar'; 
 import TemplateStackBuilder from './components/TemplateStackBuilder';
 import NetworkTable from './components/NetworkTable';
 import TemplateSidebar from './components/TemplateSidebar';
@@ -11,21 +12,25 @@ import AddTemplateModal from './components/AddTemplateModal';
 import SubTemplateForm from './components/SubTemplateForm';
 import GroupTemplateStatus from './components/GroupTemplateStatus'; 
 import PolicyManager from './components/PolicyManager';
-import NetworkInitialization from './components/NetworkInitialization'; // Import New Component
-import InterfaceFormModal from './components/InterfaceFormModal'; // Import Interface Modal
-import ZoneFormModal from './components/ZoneFormModal'; // Import Zone Modal
-import CreateStackModal from './components/CreateStackModal'; // Import Create Stack Modal
-import ZoneTable from './components/ZoneTable'; // Import Zone Table
-import VariableManager from './components/VariableManager'; // Import Variable Manager
-import TemplateVariableModal from './components/TemplateVariableModal'; // Import Template Variable Modal
-import VirtualWireModal from './components/VirtualWireModal'; // Import VWire Modal
-import VirtualLineModal from './components/VirtualLineModal'; // Import VLine Modal
-import DdnsModal from './components/DdnsModal'; // Import DDNS Modal
-import DhcpModal from './components/DhcpModal'; // Import DHCP Modal
-import VirtualWireTable from './components/VirtualWireTable'; // Import VWire Table
-import VirtualLineTable from './components/VirtualLineTable'; // Import VLine Table
-import NetworkDns from './components/NetworkDns'; // Import NetworkDns
-import DhcpTable from './components/DhcpTable'; // Import DhcpTable
+import NetworkInitialization from './components/NetworkInitialization'; 
+import InterfaceFormModal from './components/InterfaceFormModal'; 
+import ZoneFormModal from './components/ZoneFormModal'; 
+import CreateStackModal from './components/CreateStackModal'; 
+import ZoneTable from './components/ZoneTable'; 
+import VariableManager from './components/VariableManager'; 
+import TemplateVariableModal from './components/TemplateVariableModal'; 
+import StackVariablesModal from './components/StackVariablesModal'; // Import New Modal
+import VariableMappingModal from './components/VariableMappingModal'; 
+import VirtualWireModal from './components/VirtualWireModal'; 
+import VirtualLineModal from './components/VirtualLineModal'; 
+import DdnsModal from './components/DdnsModal'; 
+import DhcpModal from './components/DhcpModal'; 
+import VirtualWireTable from './components/VirtualWireTable'; 
+import VirtualLineTable from './components/VirtualLineTable'; 
+import NetworkDns from './components/NetworkDns'; 
+import DhcpTable from './components/DhcpTable'; 
+import StaticRouteModal from './components/StaticRouteModal'; 
+import NetworkRoutes from './components/NetworkRoutes'; 
 import { 
   MOCK_DEVICE_GROUPS, 
   MOCK_STACKS, 
@@ -36,10 +41,13 @@ import {
   MOCK_VIRTUAL_LINES, 
   MOCK_DNS_CONFIG, 
   MOCK_DDNS_POLICIES, 
-  MOCK_DHCP_CONFIGS 
+  MOCK_DHCP_CONFIGS, 
+  MOCK_STATIC_ROUTES,
+  MOCK_BGP_CONFIG, 
+  MOCK_BGP_NETWORKS
 } from './constants';
-import { TemplateStack, Template, DeviceGroup, NetworkInterface, NetworkZone, VariableMapping, TemplateVariable, VirtualWire, VirtualLine, DnsConfig, DdnsPolicy, DhcpConfig } from './types';
-import { Layers, FileCode, ArrowLeft, Server, Share2, Monitor, Edit3, Settings, LayoutGrid, Settings2 } from 'lucide-react';
+import { TemplateStack, Template, DeviceGroup, NetworkInterface, NetworkZone, VariableMapping, TemplateVariable, VirtualWire, VirtualLine, DnsConfig, DdnsPolicy, DhcpConfig, StaticRoute, BgpGlobalConfig, BgpNetwork } from './types';
+import { Layers, FileCode, ArrowLeft, Server, Share2, Monitor, Edit3, Settings, LayoutGrid, Settings2, Sliders } from 'lucide-react';
 
 interface TabItem {
   key: string;
@@ -52,7 +60,6 @@ interface TabItem {
 const App: React.FC = () => {
   
   // -- Unified Tabs State --
-  // Updated initial state to match the new flattened sidebar structure
   const [tabs, setTabs] = useState<TabItem[]>([
     { key: 'topn', title: 'Top N', type: 'module', closable: false },
     { key: 'policy', title: '策略', type: 'module', closable: false },
@@ -63,7 +70,7 @@ const App: React.FC = () => {
   
   const [activeTabKey, setActiveTabKey] = useState<string>('topn');
 
-  // -- Sidebar Selection State (Generic) --
+  // -- Sidebar Selection State --
   const [sidebarSelection, setSidebarSelection] = useState<{
       id: string;
       type: 'group' | 'device' | 'stack' | 'template_param';
@@ -79,14 +86,13 @@ const App: React.FC = () => {
   const [dnsConfig, setDnsConfig] = useState<DnsConfig>(MOCK_DNS_CONFIG);
   const [ddnsPolicies, setDdnsPolicies] = useState<DdnsPolicy[]>(MOCK_DDNS_POLICIES);
   const [dhcpConfigs, setDhcpConfigs] = useState<DhcpConfig[]>(MOCK_DHCP_CONFIGS);
+  const [staticRoutes, setStaticRoutes] = useState<StaticRoute[]>(MOCK_STATIC_ROUTES);
+  const [bgpGlobal, setBgpGlobal] = useState<BgpGlobalConfig>(MOCK_BGP_CONFIG);
+  const [bgpNetworks, setBgpNetworks] = useState<BgpNetwork[]>(MOCK_BGP_NETWORKS);
   
-  // Shared Active Module State (e.g. Sidebar selection in Network/System/Editors)
   const [activeModule, setActiveModule] = useState<string>('network_interfaces');
   
-  // Stack Editor View State
-  const [stackEditorView, setStackEditorView] = useState<'composition' | 'variables'>('composition');
-
-  // -- State for Modals --
+  // -- Modals --
   const [isScopeSelectorOpen, setIsScopeSelectorOpen] = useState(false);
   const [isAddTemplateModalOpen, setIsAddTemplateModalOpen] = useState(false);
   const [isCreatingNewTemplate, setIsCreatingNewTemplate] = useState(false);
@@ -94,33 +100,33 @@ const App: React.FC = () => {
   const [isZoneModalOpen, setIsZoneModalOpen] = useState(false);
   const [isCreateStackModalOpen, setIsCreateStackModalOpen] = useState(false);
   const [isTemplateVariableModalOpen, setIsTemplateVariableModalOpen] = useState(false);
+  // Replaced boolean state with ID state to support opening from any context
+  const [stackVariablesModalId, setStackVariablesModalId] = useState<string | null>(null); 
+  const [isVariableMappingModalOpen, setIsVariableMappingModalOpen] = useState(false);
   const [isVWireModalOpen, setIsVWireModalOpen] = useState(false);
   const [isVLineModalOpen, setIsVLineModalOpen] = useState(false);
   const [isDdnsModalOpen, setIsDdnsModalOpen] = useState(false);
   const [isDhcpModalOpen, setIsDhcpModalOpen] = useState(false);
+  const [isStaticRouteModalOpen, setIsStaticRouteModalOpen] = useState(false);
 
   // -- Editing State --
   const [editingStackId, setEditingStackId] = useState<string | null>(null);
   const [previewTemplateId, setPreviewTemplateId] = useState<string | null>(null);
   const [editingTemplateId, setEditingTemplateId] = useState<string | null>(null); 
+  const [editingStackForMapping, setEditingStackForMapping] = useState<string | null>(null);
   
-  // New: Interface Editing State
+  // Interface Editing State
   const [editingInterface, setEditingInterface] = useState<NetworkInterface | null>(null);
   const [interfaceCategoryToAdd, setInterfaceCategoryToAdd] = useState<'physical' | 'sub' | 'vlan' | 'aggregate' | 'loopback' | 'tunnel'>('physical');
   const [interfaceTargetTemplateId, setInterfaceTargetTemplateId] = useState<string | null>(null);
 
-  // New: Zone Editing State
+  // Other Editing States
   const [editingZone, setEditingZone] = useState<NetworkZone | null>(null);
-
-  // New: VWire/VLine Editing State
   const [editingVWire, setEditingVWire] = useState<VirtualWire | null>(null);
   const [editingVLine, setEditingVLine] = useState<VirtualLine | null>(null);
-
-  // New: DDNS Editing State
   const [editingDdnsPolicy, setEditingDdnsPolicy] = useState<DdnsPolicy | null>(null);
-
-  // New: DHCP Editing State
   const [editingDhcpConfig, setEditingDhcpConfig] = useState<DhcpConfig | null>(null);
+  const [editingStaticRoute, setEditingStaticRoute] = useState<StaticRoute | null>(null);
 
   // -- Initialization / Onboarding State --
   const [onboardingStep, setOnboardingStep] = useState<number>(0);
@@ -138,11 +144,9 @@ const App: React.FC = () => {
       }
   }, [activeTabKey, allStacks.length, onboardingStep, activeModule, hasSkippedOnboarding]);
 
-  // Reset preview selection when switching stacks
   useEffect(() => {
       if (sidebarSelection.type === 'stack') {
           setPreviewTemplateId(null);
-          setStackEditorView('composition'); // Reset view mode
       }
   }, [sidebarSelection.id, sidebarSelection.type]);
 
@@ -219,7 +223,7 @@ const App: React.FC = () => {
 
   const handleSidebarSelect = (id: string, type: 'group' | 'device' | 'stack' | 'template_param') => {
       setSidebarSelection({ id, type });
-      if (activeTabKey === 'operations') setActiveModule('system_general'); // Reset module if needed
+      if (activeTabKey === 'operations') setActiveModule('system_general'); 
       else setActiveModule('network_interfaces');
   };
 
@@ -232,14 +236,13 @@ const App: React.FC = () => {
           description: 'Created via Initialization Wizard',
           templates: templateToAutoAdd ? [templateToAutoAdd] : [],
           assignedDeviceGroups: [],
-          variableMappings: [] // Initialize mappings
+          variableMappings: [] 
       };
       setAllStacks(prev => [...prev, newStack]);
       return newStack;
   };
 
   const handleCreateStack = () => {
-      // Manual creation from sidebar (not wizard)
       setIsCreateStackModalOpen(true);
   };
 
@@ -258,6 +261,7 @@ const App: React.FC = () => {
       setSidebarSelection({ id: newStack.id, type: 'stack' });
   };
 
+  // ... (Interface Handlers and others remain unchanged)
   // Interface Handlers
   const handleAddInterface = (category: 'physical' | 'sub' | 'vlan' | 'aggregate' | 'loopback' | 'tunnel' = 'physical', templateId?: string) => {
       setEditingInterface(null); 
@@ -273,9 +277,7 @@ const App: React.FC = () => {
       setIsInterfaceModalOpen(true);
   };
 
-  // Improved handleSaveInterface with Variable Syncing
   const handleSaveInterface = (data: Partial<NetworkInterface>) => {
-      // Determine the context ID: Explicit target > Current Param selection > Existing Interface Source > Local
       let targetId = 'local';
       
       if (interfaceTargetTemplateId) {
@@ -283,23 +285,19 @@ const App: React.FC = () => {
       } else if (sidebarSelection.type === 'template_param') {
           targetId = sidebarSelection.id;
       } else if (editingInterface && editingInterface.sourceTemplateId && editingInterface.sourceTemplateId !== 'local') {
-          // Fallback: Use the interface's original template if we are editing and context is missing
           targetId = editingInterface.sourceTemplateId;
       }
 
       let finalInterface: NetworkInterface;
 
       if (editingInterface) {
-          // Edit Mode
           finalInterface = { 
               ...editingInterface, 
               ...data,
-              // Ensure source is correct if we are in a template context
               sourceTemplateId: targetId
           } as NetworkInterface;
           setAllInterfaces(prev => prev.map(i => i.id === editingInterface.id ? finalInterface : i));
       } else {
-          // Add Mode
           finalInterface = {
             id: `eth-${Date.now()}`,
             name: data.name || `eth-new`,
@@ -311,7 +309,7 @@ const App: React.FC = () => {
             virtualSystem: data.virtualSystem || 'public',
             connectionType: data.connectionType || 'Static',
             ip: data.ip || '-',
-            gateway: data.gateway || '', // Add gateway
+            gateway: data.gateway || '', 
             mode: data.mode || 'Auto',
             mtu: '1500',
             sourceTemplateId: targetId,
@@ -320,18 +318,12 @@ const App: React.FC = () => {
         setAllInterfaces(prev => [...prev, finalInterface]);
       }
 
-      // --- Logic to Sync Variables to Template Definition ---
-      // If we are editing ANY template (either via param view or stack view), sync variables
       if (targetId !== 'local') {
           const varsFound: Set<string> = new Set();
           
           const checkAndAdd = (val?: string) => {
-              if (val) {
-                  // Remove all spaces to handle cases like "$ 1" -> "$1"
-                  const cleanedVal = val.replace(/\s/g, '');
-                  if (cleanedVal.startsWith('$')) {
-                      varsFound.add(cleanedVal);
-                  }
+              if (val && val.startsWith('$')) {
+                  varsFound.add(val);
               }
           };
 
@@ -346,11 +338,10 @@ const App: React.FC = () => {
                       let hasChanges = false;
 
                       varsFound.forEach(vName => {
-                          // Only add if it doesn't exist
                           if (!existingVars.some(ev => ev.name === vName)) {
                               newVars.push({
                                   name: vName,
-                                  type: 'IP Netmask', // Default type guess
+                                  type: 'IP Netmask', 
                                   description: `自动关联自接口: ${finalInterface.name}`,
                                   defaultValue: ''
                               });
@@ -366,200 +357,79 @@ const App: React.FC = () => {
               }));
           }
       }
-      // ----------------------------------------------------
 
       setIsInterfaceModalOpen(false);
       setEditingInterface(null);
       setInterfaceTargetTemplateId(null);
   };
 
-  // Zone Handlers
-  const handleAddZone = () => {
-      setEditingZone(null);
-      setIsZoneModalOpen(true);
-  };
-
-  const handleEditZone = (zone: NetworkZone) => {
-      setEditingZone(zone);
-      setIsZoneModalOpen(true);
-  };
-
+  const handleAddZone = () => { setEditingZone(null); setIsZoneModalOpen(true); };
+  const handleEditZone = (zone: NetworkZone) => { setEditingZone(zone); setIsZoneModalOpen(true); };
   const handleSaveZone = (data: Partial<NetworkZone>) => {
-      if (editingZone) {
-          setAllZones(prev => prev.map(z => z.id === editingZone.id ? { ...z, ...data } as NetworkZone : z));
-      } else {
-          const newZone: NetworkZone = {
-              id: `zone-${Date.now()}`,
-              name: data.name || 'New_Zone',
-              type: data.type || 'L3',
-              interfaces: data.interfaces || []
-          };
-          setAllZones(prev => [...prev, newZone]);
-      }
+      if (editingZone) setAllZones(prev => prev.map(z => z.id === editingZone.id ? { ...z, ...data } as NetworkZone : z));
+      else setAllZones(prev => [...prev, { id: `zone-${Date.now()}`, name: data.name || 'New_Zone', type: data.type || 'L3', interfaces: data.interfaces || [] }]);
       setIsZoneModalOpen(false);
       setEditingZone(null);
   };
+  const handleDeleteZone = (id: string) => { if (window.confirm('确定要删除?')) setAllZones(prev => prev.filter(z => z.id !== id)); };
 
-  const handleDeleteZone = (id: string) => {
-      if (window.confirm('确定要删除该区域吗？')) {
-          setAllZones(prev => prev.filter(z => z.id !== id));
-      }
-  };
-
-  // VWire Handlers
-  const handleAddVWire = () => {
-      setEditingVWire(null);
-      setIsVWireModalOpen(true);
-  };
-  const handleEditVWire = (vw: VirtualWire) => {
-      setEditingVWire(vw);
-      setIsVWireModalOpen(true);
-  };
+  const handleAddVWire = () => { setEditingVWire(null); setIsVWireModalOpen(true); };
+  const handleEditVWire = (vw: VirtualWire) => { setEditingVWire(vw); setIsVWireModalOpen(true); };
   const handleSaveVWire = (data: Partial<VirtualWire>) => {
-      if (editingVWire) {
-          setAllVWires(prev => prev.map(vw => vw.id === editingVWire.id ? { ...vw, ...data } as VirtualWire : vw));
-      } else {
-          const newVWire: VirtualWire = {
-              id: `vw-${Date.now()}`,
-              name: data.name || 'VW_New',
-              interface1: data.interface1 || '',
-              interface2: data.interface2 || '',
-              description: data.description
-          };
-          setAllVWires(prev => [...prev, newVWire]);
-      }
+      if (editingVWire) setAllVWires(prev => prev.map(vw => vw.id === editingVWire.id ? { ...vw, ...data } as VirtualWire : vw));
+      else setAllVWires(prev => [...prev, { id: `vw-${Date.now()}`, name: data.name || 'VW', interface1: data.interface1 || '', interface2: data.interface2 || '', description: data.description }]);
       setIsVWireModalOpen(false);
       setEditingVWire(null);
   };
-  const handleDeleteVWire = (id: string) => {
-      if (window.confirm('确定要删除该虚拟网线吗？')) {
-          setAllVWires(prev => prev.filter(vw => vw.id !== id));
-      }
-  };
+  const handleDeleteVWire = (id: string) => { if (window.confirm('确定要删除?')) setAllVWires(prev => prev.filter(vw => vw.id !== id)); };
 
-  // VLine Handlers
-  const handleAddVLine = () => {
-      setEditingVLine(null);
-      setIsVLineModalOpen(true);
-  };
-  const handleEditVLine = (vl: VirtualLine) => {
-      setEditingVLine(vl);
-      setIsVLineModalOpen(true);
-  };
+  const handleAddVLine = () => { setEditingVLine(null); setIsVLineModalOpen(true); };
+  const handleEditVLine = (vl: VirtualLine) => { setEditingVLine(vl); setIsVLineModalOpen(true); };
   const handleSaveVLine = (data: Partial<VirtualLine>) => {
-      if (editingVLine) {
-          setAllVLines(prev => prev.map(vl => vl.id === editingVLine.id ? { ...vl, ...data } as VirtualLine : vl));
-      } else {
-          const newVLine: VirtualLine = {
-              id: `vl-${Date.now()}`,
-              name: data.name || 'VL_New',
-              outboundInterface: data.outboundInterface || '',
-              uplink: data.uplink || '0 Kbps',
-              downlink: data.downlink || '0 Kbps'
-          };
-          setAllVLines(prev => [...prev, newVLine]);
-      }
+      if (editingVLine) setAllVLines(prev => prev.map(vl => vl.id === editingVLine.id ? { ...vl, ...data } as VirtualLine : vl));
+      else setAllVLines(prev => [...prev, { id: `vl-${Date.now()}`, name: data.name || 'VL', outboundInterface: data.outboundInterface || '', uplink: data.uplink || '0', downlink: data.downlink || '0' }]);
       setIsVLineModalOpen(false);
       setEditingVLine(null);
   };
-  const handleDeleteVLine = (id: string) => {
-      if (window.confirm('确定要删除该虚拟线路吗？')) {
-          setAllVLines(prev => prev.filter(vl => vl.id !== id));
-      }
-  };
+  const handleDeleteVLine = (id: string) => { if (window.confirm('确定要删除?')) setAllVLines(prev => prev.filter(vl => vl.id !== id)); };
 
-  // DDNS Handlers
-  const handleSaveDns = (config: DnsConfig) => {
-      setDnsConfig(config);
-      // Removed alert as per refined requirements to avoid interruption or just keep UI clean
-  };
-
-  const handleAddDdns = () => {
-      setEditingDdnsPolicy(null);
-      setIsDdnsModalOpen(true);
-  };
-
-  const handleEditDdns = (policy: DdnsPolicy) => {
-      setEditingDdnsPolicy(policy);
-      setIsDdnsModalOpen(true);
-  };
-
+  const handleSaveDns = (config: DnsConfig) => { setDnsConfig(config); };
+  const handleAddDdns = () => { setEditingDdnsPolicy(null); setIsDdnsModalOpen(true); };
+  const handleEditDdns = (policy: DdnsPolicy) => { setEditingDdnsPolicy(policy); setIsDdnsModalOpen(true); };
   const handleSaveDdns = (data: Partial<DdnsPolicy>) => {
-      if (editingDdnsPolicy) {
-          setDdnsPolicies(prev => prev.map(p => p.id === editingDdnsPolicy.id ? { ...p, ...data } as DdnsPolicy : p));
-      } else {
-          const newPolicy: DdnsPolicy = {
-              id: `ddns-${Date.now()}`,
-              name: data.name || 'New Policy',
-              status: data.status || 'enabled',
-              description: data.description,
-              provider: data.provider || 'DynDNS',
-              domain: data.domain || '',
-              username: data.username,
-              password: data.password,
-              interface: data.interface || '',
-              updateInterval: data.updateInterval || 24,
-              retryInterval: data.retryInterval || 10,
-              lastUpdateResult: '未更新',
-              lastUpdateTime: '-'
-          };
-          setDdnsPolicies(prev => [...prev, newPolicy]);
-      }
+      if (editingDdnsPolicy) setDdnsPolicies(prev => prev.map(p => p.id === editingDdnsPolicy.id ? { ...p, ...data } as DdnsPolicy : p));
+      else setDdnsPolicies(prev => [...prev, { id: `ddns-${Date.now()}`, name: data.name || 'New', status: data.status || 'enabled', provider: data.provider || 'DynDNS', domain: data.domain || '', interface: data.interface || '', updateInterval: data.updateInterval || 24, retryInterval: data.retryInterval || 10 }]);
       setIsDdnsModalOpen(false);
       setEditingDdnsPolicy(null);
   };
+  const handleDeleteDdns = (id: string) => { if (window.confirm('确定要删除?')) setDdnsPolicies(prev => prev.filter(p => p.id !== id)); };
 
-  const handleDeleteDdns = (id: string) => {
-      if (window.confirm('确定要删除该DDNS策略吗？')) {
-          setDdnsPolicies(prev => prev.filter(p => p.id !== id));
-      }
-  };
-
-  // DHCP Handlers
-  const handleAddDhcp = () => {
-      setEditingDhcpConfig(null);
-      setIsDhcpModalOpen(true);
-  };
-
-  const handleEditDhcp = (config: DhcpConfig) => {
-      setEditingDhcpConfig(config);
-      setIsDhcpModalOpen(true);
-  };
-
+  const handleAddDhcp = () => { setEditingDhcpConfig(null); setIsDhcpModalOpen(true); };
+  const handleEditDhcp = (config: DhcpConfig) => { setEditingDhcpConfig(config); setIsDhcpModalOpen(true); };
   const handleSaveDhcp = (data: Partial<DhcpConfig>) => {
-      if (editingDhcpConfig) {
-          setDhcpConfigs(prev => prev.map(c => c.id === editingDhcpConfig.id ? { ...c, ...data } as DhcpConfig : c));
-      } else {
-          const newConfig: DhcpConfig = {
-              id: `dhcp-${Date.now()}`,
-              name: data.name || 'New DHCP',
-              status: data.status || 'enabled',
-              interface: data.interface || '',
-              type: data.type || 'Server',
-              ipRange: data.ipRange,
-              netmask: data.netmask,
-              gateway: data.gateway,
-              dnsType: data.dnsType || 'system',
-              primaryDns: data.primaryDns,
-              secondaryDns: data.secondaryDns,
-              leaseTime: data.leaseTime
-          };
-          setDhcpConfigs(prev => [...prev, newConfig]);
-      }
+      if (editingDhcpConfig) setDhcpConfigs(prev => prev.map(c => c.id === editingDhcpConfig.id ? { ...c, ...data } as DhcpConfig : c));
+      else setDhcpConfigs(prev => [...prev, { id: `dhcp-${Date.now()}`, name: data.name || 'New', status: data.status || 'enabled', interface: data.interface || '', type: data.type || 'Server', dnsType: data.dnsType || 'system' }]);
       setIsDhcpModalOpen(false);
       setEditingDhcpConfig(null);
   };
+  const handleDeleteDhcp = (id: string) => { if (window.confirm('确定要删除?')) setDhcpConfigs(prev => prev.filter(c => c.id !== id)); };
 
-  const handleDeleteDhcp = (id: string) => {
-      if (window.confirm('确定要删除该DHCP服务吗？')) {
-          setDhcpConfigs(prev => prev.filter(c => c.id !== id));
-      }
+  const handleAddStaticRoute = () => { setEditingStaticRoute(null); setIsStaticRouteModalOpen(true); };
+  const handleEditStaticRoute = (route: StaticRoute) => { setEditingStaticRoute(route); setIsStaticRouteModalOpen(true); };
+  const handleSaveStaticRoute = (data: Partial<StaticRoute>) => {
+      if (editingStaticRoute) setStaticRoutes(prev => prev.map(r => r.id === editingStaticRoute.id ? { ...r, ...data } as StaticRoute : r));
+      else setStaticRoutes(prev => [...prev, { id: `route-${Date.now()}`, ipVersion: data.ipVersion || 'IPv4', destination: data.destination || '', interface: data.interface || '', distance: 1, metric: 0, status: 'enabled', sourceTemplateId: 'local' }]);
+      setIsStaticRouteModalOpen(false);
+      setEditingStaticRoute(null);
   };
+  const handleDeleteStaticRoute = (id: string) => { if (window.confirm('确定要删除?')) setStaticRoutes(prev => prev.filter(r => r.id !== id)); };
+
+  const handleSaveBgpGlobal = (config: BgpGlobalConfig) => { setBgpGlobal(config); };
+  const handleAddBgpNetwork = (network: string) => { setBgpNetworks(prev => [...prev, { id: `bgp-net-${Date.now()}`, network, sourceTemplateId: 'local' }]); };
+  const handleDeleteBgpNetwork = (id: string) => { if (window.confirm('确定要删除?')) setBgpNetworks(prev => prev.filter(n => n.id !== id)); };
 
   const handleSaveVariableMappings = (stackId: string, newMappings: VariableMapping[]) => {
-      setAllStacks(prev => prev.map(s => 
-          s.id === stackId ? { ...s, variableMappings: newMappings } : s
-      ));
+      setAllStacks(prev => prev.map(s => s.id === stackId ? { ...s, variableMappings: newMappings } : s));
   };
 
   const handleManageVariables = (templateId: string) => {
@@ -567,11 +437,14 @@ const App: React.FC = () => {
       setIsTemplateVariableModalOpen(true);
   };
 
+  const handleManageVariableMappings = (stackId: string) => {
+      setEditingStackForMapping(stackId);
+      setIsVariableMappingModalOpen(true);
+  };
+
   const handleSaveTemplateVariables = (variables: TemplateVariable[]) => {
       if (editingTemplateId) {
-          setAllTemplates(prev => prev.map(t => 
-              t.id === editingTemplateId ? { ...t, variables } : t
-          ));
+          setAllTemplates(prev => prev.map(t => t.id === editingTemplateId ? { ...t, variables } : t));
           setIsTemplateVariableModalOpen(false);
           setEditingTemplateId(null);
       }
@@ -623,7 +496,6 @@ const App: React.FC = () => {
   
   const handleAddTemplateToStack = (template: Template) => {
       if (!editingStackId) return;
-      
       setAllStacks(prev => prev.map(stack => {
           if (stack.id === editingStackId) {
               return {
@@ -637,8 +509,6 @@ const App: React.FC = () => {
       setEditingStackId(null);
   };
 
-  // -- Render Logic --
-
   // Special Renderer for Template Parameter View
   const renderTemplateParameterDetail = (templateId: string) => {
       const tmpl = allTemplates.find(t => t.id === templateId);
@@ -648,6 +518,8 @@ const App: React.FC = () => {
       const associatedDevices = Array.from(new Set(referencedStacks.flatMap(s => s.assignedDeviceGroups)));
 
       const filteredInterfaces = allInterfaces.filter(i => i.sourceTemplateId === tmpl.id);
+      const filteredRoutes = staticRoutes.filter(r => r.sourceTemplateId === tmpl.id);
+      const filteredBgpNetworks = bgpNetworks.filter(n => n.sourceTemplateId === tmpl.id);
 
       return (
           <div className="flex flex-col h-full bg-white animate-in fade-in duration-200">
@@ -756,6 +628,22 @@ const App: React.FC = () => {
                                     onDelete={(id) => handleDeleteVLine(id)}
                                 />
                            </div>
+                       ) : activeModule === 'network_routes' ? (
+                           <div className="h-full flex flex-col bg-white">
+                                <NetworkRoutes 
+                                    staticRoutes={filteredRoutes}
+                                    bgpGlobal={bgpGlobal}
+                                    bgpNetworks={filteredBgpNetworks}
+                                    interfaces={allInterfaces}
+                                    isEditable={true}
+                                    onAddStaticRoute={handleAddStaticRoute}
+                                    onEditStaticRoute={handleEditStaticRoute}
+                                    onDeleteStaticRoute={handleDeleteStaticRoute}
+                                    onSaveBgpGlobal={handleSaveBgpGlobal}
+                                    onAddBgpNetwork={handleAddBgpNetwork}
+                                    onDeleteBgpNetwork={handleDeleteBgpNetwork}
+                                />
+                           </div>
                        ) : activeModule === 'network_dns' ? (
                            <div className="h-full flex flex-col bg-white">
                                 <NetworkDns 
@@ -809,8 +697,6 @@ const App: React.FC = () => {
                   <TemplateStackBuilder 
                       stack={stack}
                       selectedTemplateId={previewTemplateId} 
-                      activeView={stackEditorView}
-                      onViewChange={setStackEditorView}
                       onSelectTemplate={(id) => setPreviewTemplateId(id)} 
                       onAddTemplate={() => {
                           setEditingStackId(stack.id);
@@ -842,58 +728,85 @@ const App: React.FC = () => {
               </div>
               
               <div className="flex-1 flex min-h-0 bg-white">
-                   {stackEditorView === 'variables' ? (
-                       <div className="w-full h-full">
-                           <VariableManager 
-                                stack={stack}
-                                allTemplates={allTemplates}
-                                onSave={(newMappings) => handleSaveVariableMappings(stack.id, newMappings)}
-                           />
-                       </div>
-                   ) : (
-                       <>
-                           <TemplateSidebar activeModule={activeModule} onSelectModule={setActiveModule} />
-                           <div className="flex-1 flex flex-col overflow-hidden">
-                               <div className="px-6 py-2 border-b border-gray-100 bg-gray-50 flex items-center justify-between text-xs text-gray-500">
-                                   <span>预览模式 (实时预览生效结果)</span>
-                               </div>
-                               {activeModule === 'network_interfaces' ? (
-                                   <NetworkTable 
-                                        data={allInterfaces} 
-                                        activeTemplateId={previewTemplateId} 
-                                        showAssociatedDevices={false} 
-                                        stacks={[stack]}
-                                        stackTemplates={stack.templates}
-                                   />
-                               ) : activeModule === 'system_general' ? (
-                                   <SystemConfigForm isPreview={true} />
-                               ) : activeModule === 'network_dns' ? (
-                                   <div className="h-full w-full">
-                                       <NetworkDns 
-                                            dnsConfig={dnsConfig}
-                                            ddnsPolicies={ddnsPolicies}
-                                            isEditable={false} // Stack view is preview only
-                                            onSaveDns={() => {}}
-                                            onAddDdns={() => {}}
-                                            onEditDdns={() => {}}
-                                            onDeleteDdns={() => {}}
-                                       />
-                                   </div>
-                               ) : activeModule === 'network_dhcp' ? (
-                                   <div className="h-full w-full">
-                                       <DhcpTable 
-                                            data={dhcpConfigs}
-                                            onAdd={() => {}}
-                                            onEdit={() => {}}
-                                            onDelete={() => {}}
-                                       />
-                                   </div>
-                               ) : (
-                                   <div className="flex items-center justify-center h-full text-gray-400">Module: {activeModule}</div>
-                               )}
+                   <TemplateSidebar activeModule={activeModule} onSelectModule={setActiveModule} />
+                   <div className="flex-1 flex flex-col overflow-hidden relative">
+                       <div className="px-6 py-2 border-b border-gray-100 bg-blue-50/20 flex items-center justify-between text-xs text-blue-800">
+                           <span className="flex items-center font-medium">
+                               <Monitor className="w-3.5 h-3.5 mr-2" />
+                               {previewTemplateId 
+                                  ? `预览模式: ${allTemplates.find(t => t.id === previewTemplateId)?.name}`
+                                  : '预览模式 (实时预览生效结果)'
+                               }
+                           </span>
+                           
+                           <div className="flex items-center space-x-3">
+                               <button 
+                                    onClick={() => setStackVariablesModalId(stack.id)} 
+                                    className="flex items-center text-[10px] text-indigo-600 bg-white border border-indigo-200 hover:bg-indigo-50 px-3 py-1 rounded transition-colors shadow-sm"
+                               >
+                                    <Settings2 className="w-3 h-3 mr-1.5" />
+                                    管理变量定义
+                               </button>
+                               <button 
+                                    onClick={() => handleManageVariableMappings(stack.id)}
+                                    className="flex items-center text-[10px] text-blue-600 bg-white border border-blue-200 hover:bg-blue-50 px-3 py-1 rounded transition-colors shadow-sm"
+                               >
+                                    <Sliders className="w-3 h-3 mr-1.5" />
+                                    变量映射
+                               </button>
                            </div>
-                       </>
-                   )}
+                       </div>
+                       {activeModule === 'network_interfaces' ? (
+                           <NetworkTable 
+                                data={allInterfaces} 
+                                activeTemplateId={previewTemplateId} 
+                                showAssociatedDevices={false} 
+                                stacks={[stack]}
+                                stackTemplates={stack.templates}
+                           />
+                       ) : activeModule === 'system_general' ? (
+                           <SystemConfigForm isPreview={true} />
+                       ) : activeModule === 'network_dns' ? (
+                           <div className="h-full w-full">
+                               <NetworkDns 
+                                    dnsConfig={dnsConfig}
+                                    ddnsPolicies={ddnsPolicies}
+                                    isEditable={false} // Stack view is preview only
+                                    onSaveDns={() => {}}
+                                    onAddDdns={() => {}}
+                                    onEditDdns={() => {}}
+                                    onDeleteDdns={() => {}}
+                               />
+                           </div>
+                       ) : activeModule === 'network_dhcp' ? (
+                           <div className="h-full w-full">
+                               <DhcpTable 
+                                    data={dhcpConfigs}
+                                    onAdd={() => {}}
+                                    onEdit={() => {}}
+                                    onDelete={() => {}}
+                               />
+                           </div>
+                       ) : activeModule === 'network_routes' ? (
+                           <div className="h-full w-full">
+                               <NetworkRoutes 
+                                    staticRoutes={staticRoutes}
+                                    bgpGlobal={bgpGlobal}
+                                    bgpNetworks={bgpNetworks}
+                                    interfaces={allInterfaces}
+                                    isEditable={false}
+                                    onAddStaticRoute={() => {}}
+                                    onEditStaticRoute={() => {}}
+                                    onDeleteStaticRoute={() => {}}
+                                    onSaveBgpGlobal={() => {}}
+                                    onAddBgpNetwork={() => {}}
+                                    onDeleteBgpNetwork={() => {}}
+                               />
+                           </div>
+                       ) : (
+                           <div className="flex items-center justify-center h-full text-gray-400">Module: {activeModule}</div>
+                       )}
+                   </div>
               </div>
           </div>
       );
@@ -1010,6 +923,9 @@ const App: React.FC = () => {
                                 dnsConfigData={dnsConfig}
                                 ddnsPolicyData={ddnsPolicies}
                                 dhcpData={dhcpConfigs}
+                                staticRoutes={staticRoutes}
+                                bgpGlobal={bgpGlobal}
+                                bgpNetworks={bgpNetworks}
                                 activeModule={activeModule}
                                 onSelectModule={setActiveModule}
                                 showNetworkConfig={true}
@@ -1033,7 +949,15 @@ const App: React.FC = () => {
                                 onAddDhcp={handleAddDhcp}
                                 onEditDhcp={handleEditDhcp}
                                 onDeleteDhcp={handleDeleteDhcp}
+                                onAddStaticRoute={handleAddStaticRoute}
+                                onEditStaticRoute={handleEditStaticRoute}
+                                onDeleteStaticRoute={handleDeleteStaticRoute}
+                                onSaveBgpGlobal={handleSaveBgpGlobal}
+                                onAddBgpNetwork={handleAddBgpNetwork}
+                                onDeleteBgpNetwork={handleDeleteBgpNetwork}
                                 onManageVariables={handleManageVariables}
+                                onManageStackVariables={(stackId) => setStackVariablesModalId(stackId)}
+                                onManageVariableMappings={(stackId) => handleManageVariableMappings(stackId)}
                             />
                         ) : sidebarSelection.type === 'device' ? (
                             <div className="flex flex-col h-full">
@@ -1234,6 +1158,19 @@ const App: React.FC = () => {
           />
       )}
 
+      {/* Static Route Modal */}
+      {isStaticRouteModalOpen && (
+          <StaticRouteModal
+              initialData={editingStaticRoute}
+              interfaces={allInterfaces}
+              onClose={() => {
+                  setIsStaticRouteModalOpen(false);
+                  setEditingStaticRoute(null);
+              }}
+              onSave={handleSaveStaticRoute}
+          />
+      )}
+
       {/* Create Stack Modal */}
       {isCreateStackModalOpen && (
           <CreateStackModal 
@@ -1253,6 +1190,34 @@ const App: React.FC = () => {
                   setEditingTemplateId(null);
               }}
               onSave={handleSaveTemplateVariables}
+          />
+      )}
+
+      {/* New Stack Variables Modal */}
+      {stackVariablesModalId && (
+          <StackVariablesModal
+              stack={allStacks.find(s => s.id === stackVariablesModalId)!}
+              allTemplates={allTemplates}
+              onClose={() => setStackVariablesModalId(null)}
+              onEditTemplate={(tmplId) => {
+                  setStackVariablesModalId(null);
+                  setEditingTemplateId(tmplId);
+                  setIsTemplateVariableModalOpen(true);
+              }}
+          />
+      )}
+
+      {/* Variable Mapping Modal (Stack Level) */}
+      {isVariableMappingModalOpen && editingStackForMapping && (
+          <VariableMappingModal
+              stack={allStacks.find(s => s.id === editingStackForMapping)!}
+              allTemplates={allTemplates}
+              groups={MOCK_DEVICE_GROUPS}
+              onClose={() => {
+                  setIsVariableMappingModalOpen(false);
+                  setEditingStackForMapping(null);
+              }}
+              onSave={(mappings) => handleSaveVariableMappings(editingStackForMapping, mappings)}
           />
       )}
 

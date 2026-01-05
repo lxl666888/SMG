@@ -20,12 +20,9 @@ const TYPE_OPTIONS = [
 
 const TemplateVariableModal: React.FC<TemplateVariableModalProps> = ({ template, onClose, onSave }) => {
   const [variables, setVariables] = useState<TemplateVariable[]>([]);
-  
-  // Modal State for "Add/Edit" form
   const [isFormOpen, setIsFormOpen] = useState(false);
   const [editingIndex, setEditingIndex] = useState<number | null>(null);
   
-  // Form Data
   const [formData, setFormData] = useState<TemplateVariable>({ name: '$', type: 'IP Netmask', description: '' });
   const [error, setError] = useState<string | null>(null);
 
@@ -55,7 +52,6 @@ const TemplateVariableModal: React.FC<TemplateVariableModalProps> = ({ template,
   };
 
   const handleSaveVariable = () => {
-      // Basic Validation
       if (!formData.name.startsWith('$') || formData.name.length < 2) {
           setError("变量名必须以 '$' 开头且不能为空");
           return;
@@ -88,7 +84,7 @@ const TemplateVariableModal: React.FC<TemplateVariableModalProps> = ({ template,
     <div className="fixed inset-0 z-[60] flex items-center justify-center bg-black/50 backdrop-blur-sm animate-in fade-in duration-200">
       <div className="bg-white rounded-lg shadow-2xl w-[900px] h-[650px] flex flex-col overflow-hidden animate-in zoom-in-95 duration-200">
         
-        {/* Header - Matches Figure 3/4 Header Style */}
+        {/* Header */}
         <div className="flex items-center justify-between px-6 py-4 border-b border-gray-200 bg-white">
           <div className="flex items-center">
               <Settings2 className="w-5 h-5 mr-3 text-blue-600" />
@@ -104,7 +100,7 @@ const TemplateVariableModal: React.FC<TemplateVariableModalProps> = ({ template,
           </button>
         </div>
 
-        {/* Content - Matches Figure 4 List View */}
+        {/* Content */}
         <div className="flex-1 overflow-y-auto p-6 bg-white relative">
             
             {/* Toolbar */}
